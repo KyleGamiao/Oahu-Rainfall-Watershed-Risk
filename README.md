@@ -3,6 +3,7 @@ This project analyzes long-term rainfall trends across Oʻahu’s watersheds pri
 # Structure and Layout
 *Analysis Folder*<br>
 >• risk_assessment.qmd is the main file for this project. Rainfall, watershed risk, and Haole Koa distribution are factors that are investigated in this file.
+
 *Data Folder*<br>
 >• oahu_ndvi stores all of the ndvi data from HCDP for Oʻahu, spanning from January of 2000 to October of 2025.<br>
 # Jaydon Laboy
