@@ -6,6 +6,9 @@ This project analyzes long-term rainfall trends across Oʻahu’s watersheds pri
 LinkedIn: <br>
 Github: <br>
 # Sano Tanna
+Student leader pursuing a degree in Environmental Studies, combining scientific inquiry with leadership and service. Experienced in campus governance, environmental projects, and mentoring peers toward sustainable, community-based solutions.
+LinkedIn: www.linkedin.com/in/sano-tanna-b30ba0287
+GitHub: https://sano-tanna.github.io/
 
 LinkedIn: <br>
 Github: <br>
