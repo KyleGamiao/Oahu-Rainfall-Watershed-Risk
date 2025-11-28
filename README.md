@@ -1,5 +1,5 @@
 # Oahu-Rainfall-Watershed-Risk
-This project analyzes long-term rainfall trends across Oʻahu’s watersheds primarily using Hawaiʻi Climate Data Portal (HCDP) data. This project identifies drought, flooding, and wildfire vulnerabilities by examining rainfall extremes, integrating temperature data, and mapping Haole Koa distribution as an indicator of environmental stress. Work has been contributed too equally between three collaborators: Jaydon Laboy, Sano Tanna, and Kyle-Jacob Laʻakea Gamiao
+This project analyzes long-term rainfall trends across Oʻahu’s watersheds primarily using Hawaiʻi Climate Data Portal (HCDP) data. This project identifies drought, flooding, and wildfire vulnerabilities by examining rainfall extremes, integrating temperature data, and mapping Haole Koa distribution as an indicator of environmental stress. Work has been contributed too equally between three collaborators: Jaydon Laboy, Sano Tanna, and Kyle-Jacob Laʻakea Gamiao.
 # Structure and Layout
 *Analysis Folder* - Contains all the code for this project.<br>
 *Data Folder* - Contains all the data for this project.<br>
