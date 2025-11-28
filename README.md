@@ -6,7 +6,7 @@ This project analyzes long-term rainfall trends across Oʻahu’s watersheds pri
 
 *Data Folder*<br>
 >• oahu_ndvi stores all of the ndvi data from HCDP for Oʻahu, spanning from January of 2000 to October of 2025.<br>
->• oahu_rainfall stores all of the rainfall data from HCDP for Oʻahu, spanning from January of 1990 to October of 2025.<br>
+>• oahu_rain stores all of the rainfall data from HCDP for Oʻahu, spanning from January of 1990 to October of 2025.<br>
 >• oahu_temp stores all of the mean temperature data from HCDP for Oʻahu, spanning from January of 1990 to October of 2025.<br>
 >• oahu_humid stores all of the humidity data from HCDP for Oʻahu, spanning from January of 2002 to October of 2025.<br>
 >• oahu_ignit stores all of the ignition probability data from HCDP for Oʻahu, spanning from January of 2002 to October of 2025.
