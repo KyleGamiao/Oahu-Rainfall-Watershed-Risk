@@ -3,6 +3,7 @@ This project analyzes long-term rainfall trends across Oʻahu’s watersheds pri
 
 # Jaydon Laboy
 I am an Environmental Science major with a growing interest in using data to understand and address environmental challenges. I’m currently working to strengthen my skills in coding and data analysis so I can better interpret ecological patterns and support evidence based decision making. My goal is to combine field knowledge with analytical tools to contribute to sustainable solutions in Hawaii.
+
 LinkedIn: https://www.linkedin.com/in/jaydon-laboy-9015b3384/
 Github: https://github.com/JaydonLaboy/DS422-Geocomputation
 # Sano Tanna
