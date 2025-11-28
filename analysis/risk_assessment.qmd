@@ -1,6 +1,6 @@
 ---
-title: "Rainfall and Watersheds Risk Assessment on Oʻahu"
-author: "Jaydon Laboy, Sano Tanna, Kyle-Jacob Laʻakea Gamiao"
+title: "Rainfall and Watersheds Over Time"
+author: "Jaydon Laboy, Sano Tanna, Kyle-Jacob Gamiao"
 format: html
 editor: visual
 ---
