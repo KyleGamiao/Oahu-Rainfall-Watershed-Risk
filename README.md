@@ -3,14 +3,14 @@ This project analyzes long-term rainfall trends across Oʻahu’s watersheds pri
 
 # Jaydon Laboy
 
-LinkedIn
-
+LinkedIn: <br>
+Github: <br>
 # Sano Tanna
 
-LinkedIn
-
+LinkedIn: <br>
+Github: <br>
 # Kyle-Jacob Gamiao
-<img width="180" height="210" alt="kyle_gamiao" src="https://github.com/user-attachments/assets/7332dea3-04e6-4563-8dd8-8fb1b2e29740" />
-I am an Environmental Science student from Honolulu with hands-on experience in fieldwork, laboratory methods, and natural resource management across Hawaiʻi. I bring strong skills in data collection, environmental monitoring, science communication, and community engagement, supported by roles in research, tutoring support, customer service, and food service. I am also the founder of Hoalau, an educational platform focused on Hawaiian culture, environmental stewardship, and native plant identification.
-LinkedIn: https://www.linkedin.com/in/kyle-jacob-gamiao
+<img width="180" height="210" alt="kyle_gamiao" src="https://github.com/user-attachments/assets/7332dea3-04e6-4563-8dd8-8fb1b2e29740" /><br>
+I am an Environmental Science student from Honolulu with hands-on experience in fieldwork, laboratory methods, and natural resource management across Hawaiʻi. I bring strong skills in data collection, environmental monitoring, science communication, and community engagement, supported by roles in research, tutoring support, customer service, and food service. I am also the founder of Hoalau, an educational platform focused on Hawaiian culture, environmental stewardship, and native plant identification.<br>
+LinkedIn: https://www.linkedin.com/in/kyle-jacob-gamiao<br>
 GitHub: https://github.com/KyleGamiao
