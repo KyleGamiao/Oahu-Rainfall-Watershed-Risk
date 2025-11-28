@@ -1,0 +1,348 @@
+---
+title: "Rainfall and Watersheds Risk Assessment on Oʻahu"
+author: "Jaydon Laboy, Sano Tanna, Kyle-Jacob Laʻakea Gamiao"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+Library Statements:
+
+```{r}
+library("sf")
+library("terra")
+library("tidyverse")
+library("lubridate")
+library("exactextractr")
+library("rgbif")
+library("broom")
+library("ggplot2")
+library("patchwork")
+library("units")
+```
+
+Rainfall Data From 1990-2025
+
+```{r}
+# =========================
+# OʻAHU RAINFALL ANALYSIS 1990-2025
+# =========================
+
+library(terra)
+library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
+
+# -------------------------------
+# 1) List all rainfall GeoTIFFs
+# -------------------------------
+rain_base_path <- "/Users/roronorazoro/Desktop/DS422/DS422-Geocomputation/data/HCDP_data/rainfall/new/month/statewide/data_map"
+
+# List all TIF files recursively
+all_tifs <- list.files(rain_base_path, pattern="\\.tif$", recursive=TRUE, full.names=TRUE)
+
+# Filter years 1990-2025 from filenames
+rain_files <- all_tifs[grepl("_(199\\d|200\\d|201\\d|202[0-5])_\\d{2}\\.tif$", all_tifs)]
+
+# Check files found
+if(length(rain_files) == 0){
+  stop("No TIF files found for 1990-2025. Check your folder or filenames!")
+}
+
+# -------------------------------
+# 2) Load as raster stack
+# -------------------------------
+rain_stack <- rast(rain_files)
+
+# Name layers by YYYY_MM from filename
+names(rain_stack) <- gsub(".*_(\\d{4}_\\d{2})\\.tif$", "\\1", basename(rain_files))
+
+# -------------------------------
+# 3) Compute monthly metrics
+# -------------------------------
+rain_metrics <- map_dfr(1:nlyr(rain_stack), function(i){
+  r <- rain_stack[[i]]
+  vals <- values(r)
+  vals <- vals[!is.na(vals)]
+  
+  data.frame(
+    month = names(r),
+    mean_rain_mm = mean(vals),
+    min_rain_mm  = min(vals),
+    max_rain_mm  = max(vals),
+    sd_rain_mm   = sd(vals),
+    p10_rain_mm  = quantile(vals, 0.10),
+    p90_rain_mm  = quantile(vals, 0.90)
+  )
+})
+
+# Display metrics in RStudio
+print(rain_metrics)
+
+# -------------------------------
+# 4) Compute annual mean for visualization
+# -------------------------------
+annual_mean <- mean(rain_stack)
+
+# Convert raster to data frame for ggplot
+annual_df <- as.data.frame(annual_mean, xy=TRUE)
+colnames(annual_df) <- c("x", "y", "rain_mm")
+
+# -------------------------------
+# 5) Plot map in RStudio
+# -------------------------------
+ggplot(annual_df, aes(x=x, y=y, fill=rain_mm)) +
+  geom_raster() +
+  scale_fill_gradientn(
+    colors = rev(brewer.pal(9, "YlGnBu")),
+    name = "Rainfall (mm)",
+    guide = guide_colorbar(
+      barwidth = 1.5, barheight = 15,
+      title.position = "top",
+      title.hjust = 0.5
+    )
+  ) +
+  coord_equal() +
+  labs(
+    title = "Oʻahu Average Rainfall 1990-2025",
+    subtitle = "Values in millimeters (mm) per month",
+    x = "Longitude (degrees)",
+    y = "Latitude (degrees)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust=0.5, face="bold"),
+    plot.subtitle = element_text(hjust=0.5)
+  )
+
+```
+
+Annual Rainfall Over Time
+
+#Look for significant events like droughts or storms
+
+```{r}
+# =========================
+# OʻAHU ANNUAL MEAN RAINFALL LINE PLOT 1990-2025
+# =========================
+
+library(terra)
+library(tidyverse)
+
+# -------------------------------
+# 1) List all rainfall GeoTIFFs
+# -------------------------------
+rain_base_path <- "/Users/roronorazoro/Desktop/DS422/DS422-Geocomputation/data/HCDP_data/rainfall/new/month/statewide/data_map"
+
+all_tifs <- list.files(rain_base_path, pattern="\\.tif$", recursive=TRUE, full.names=TRUE)
+
+# Filter years 1990-2025
+rain_files <- all_tifs[grepl("_(199\\d|200\\d|201\\d|202[0-5])_\\d{2}\\.tif$", all_tifs)]
+if(length(rain_files)==0) stop("No files found!")
+
+# -------------------------------
+# 2) Load rasters
+# -------------------------------
+rain_stack <- rast(rain_files)
+names(rain_stack) <- gsub(".*_(\\d{4}_\\d{2})\\.tif$", "\\1", basename(rain_files))
+
+# Extract year from layer names
+years <- as.integer(substr(names(rain_stack), 1, 4))
+unique_years <- sort(unique(years))
+
+# -------------------------------
+# 3) Compute annual mean rainfall
+# -------------------------------
+annual_means <- map_dbl(unique_years, function(y){
+  layers <- rain_stack[[which(years == y)]]
+  vals <- values(layers)
+  vals <- vals[!is.na(vals)]
+  mean(vals)
+})
+
+mean_rain_per_year <- data.frame(
+  year = unique_years,
+  mean_rain_mm = annual_means
+)
+
+# -------------------------------
+# 4) Plot line chart
+# -------------------------------
+ggplot(mean_rain_per_year, aes(x=year, y=mean_rain_mm)) +
+  geom_line(color="steelblue", size=1) +
+  geom_point(color="darkred") +
+  labs(
+    title="Oʻahu Island-Wide Mean Rainfall (1990-2025)",
+    x="Year",
+    y="Mean Rainfall (mm)"
+  ) +
+  theme_minimal(base_size = 14)
+```
+
+NDVI 2000-2024
+
+```{r}
+# =========================
+# NDVI ANALYSIS OʻAHU (MODIS) 2000–2024
+# =========================
+
+library(terra)
+library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
+
+# -------------------------------
+# 1) Define base NDVI directory
+# -------------------------------
+ndvi_base <- "/Users/roronorazoro/Desktop/HCDP_data/ndvi_modis/day/oa/data_map"
+
+# Recursively list all tif files
+all_ndvi_tifs <- list.files(ndvi_base, pattern="\\.tif$", recursive=TRUE, full.names=TRUE)
+
+# Filter filenames matching NDVI pattern
+ndvi_files <- all_ndvi_tifs[
+  grepl("ndvi_modis_day_oa_data_map_(200\\d|201\\d|202[0-4])_\\d{2}_\\d{2}\\.tif$", all_ndvi_tifs)
+]
+
+cat("Total NDVI files detected:", length(ndvi_files), "\n")
+
+# ======================================
+# 2) SAFE LOADER — SKIP BAD / CORRUPT FILES
+# ======================================
+
+valid_ndvi <- list()
+
+for(f in ndvi_files){
+  try({
+    r <- rast(f)
+    valid_ndvi[[length(valid_ndvi) + 1]] <- r
+  }, silent = TRUE)
+}
+
+cat("Successfully loaded:", length(valid_ndvi), "NDVI rasters\n")
+cat("Unreadable files:", length(ndvi_files) - length(valid_ndvi), "\n")
+
+# List bad files (optional but useful)
+bad_files <- setdiff(ndvi_files, sapply(valid_ndvi, sources))
+if(length(bad_files) > 0){
+  cat("Unreadable NDVI files:\n")
+  print(bad_files)
+}
+
+if(length(valid_ndvi) == 0){
+  stop("No valid NDVI rasters could be loaded.")
+}
+
+# -------------------------------
+# 3) STACK VALID RASTERS
+# -------------------------------
+ndvi_stack <- rast(valid_ndvi)
+
+names(ndvi_stack) <- gsub(
+  ".*_(\\d{4}_\\d{2}_\\d{2})\\.tif$", 
+  "\\1",
+  basename(sources(ndvi_stack))
+)
+
+# Extract date components
+dates <- names(ndvi_stack)
+years <- as.integer(substr(dates, 1, 4))
+months <- substr(dates, 1, 7)   # YYYY_MM
+
+# ======================================
+# 4) MONTHLY MEAN NDVI (2000–2024)
+# ======================================
+monthly_ids <- unique(months)
+
+monthly_ndvi <- map_dfr(monthly_ids, function(m){
+  idx <- which(months == m)
+  r <- mean(ndvi_stack[[idx]])
+  vals <- values(r)
+  vals <- vals[!is.na(vals)]
+  
+  data.frame(
+    month = m,
+    mean_ndvi = mean(vals),
+    min_ndvi  = min(vals),
+    max_ndvi  = max(vals),
+    sd_ndvi   = sd(vals),
+    p10_ndvi  = quantile(vals, 0.10),
+    p90_ndvi  = quantile(vals, 0.90)
+  )
+})
+
+print(head(monthly_ndvi))
+
+# ======================================
+# 5) ANNUAL NDVI (2000–2024)
+# ======================================
+unique_years <- sort(unique(years))
+
+annual_ndvi <- map_dfr(unique_years, function(y){
+  idx <- which(years == y)
+  r <- mean(ndvi_stack[[idx]])
+  vals <- values(r)
+  vals <- vals[!is.na(vals)]
+  
+  data.frame(
+    year = y,
+    mean_ndvi = mean(vals)
+  )
+})
+
+print(annual_ndvi)
+
+# ======================================
+# 6) LONG-TERM MEAN NDVI MAP
+# ======================================
+annual_mean_raster <- mean(ndvi_stack)
+
+annual_df <- as.data.frame(annual_mean_raster, xy=TRUE)
+colnames(annual_df) <- c("x", "y", "ndvi")
+
+ggplot(annual_df, aes(x=x, y=y, fill=ndvi)) +
+  geom_raster() +
+  scale_fill_gradientn(
+    colors = rev(brewer.pal(9,"YlGn")),
+    name="NDVI",
+    guide = guide_colorbar(
+      barwidth = 1.5, barheight = 15,
+      title.position="top",
+      title.hjust=0.5
+    )
+  ) +
+  coord_equal() +
+  labs(
+    title="Oʻahu Mean NDVI (2000–2024)",
+    subtitle="MODIS NDVI daily data aggregated to long-term mean",
+    x="Longitude", 
+    y="Latitude"
+  ) +
+  theme_minimal(base_size=14) +
+  theme(
+    legend.position="right",
+    plot.title=element_text(hjust=0.5, face="bold"),
+    plot.subtitle=element_text(hjust=0.5)
+  )
+
+# ======================================
+# 7) ANNUAL NDVI TIME SERIES PLOT
+# ======================================
+ggplot(annual_ndvi, aes(x=year, y=mean_ndvi)) +
+  geom_line(color="forestgreen", linewidth=1) +
+  geom_point(color="darkred") +
+  labs(
+    title="Oʻahu Annual Mean NDVI (2000–2024)",
+    x="Year",
+    y="Mean NDVI"
+  ) +
+  theme_minimal(base_size=14)
+
+
+```
