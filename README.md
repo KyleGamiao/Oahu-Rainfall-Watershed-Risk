@@ -7,11 +7,12 @@ This project analyzes long-term rainfall trends across Oʻahu’s watersheds pri
 >• risk_assessment.qmd is the main file for this project. Rainfall, watershed risk, and Haole Koa distribution are factors that are investigated in this file.
 
 *Data Folder*<br>
->• oahu_humid stores all of the humidity data from HCDP for Oʻahu, spanning from January of 2002 to October of 2025. Organized in sub-folders by year.<br>
->• oahu_ignit stores all of the ignition probability data from HCDP for Oʻahu, spanning from January of 2002 to October of 2025. Organized in sub-folders by year.<br>
->• oahu_ndvi stores all of the ndvi data from HCDP for Oʻahu, spanning from January of 2000 to October of 2025. Organized in sub-folders by year.<br>
->• oahu_rain stores all of the rainfall data from HCDP for Oʻahu, spanning from January of 1990 to October of 2025. Organized in sub-folders by year.<br>
->• oahu_temp stores all of the mean temperature data from HCDP for Oʻahu, spanning from January of 1990 to October of 2025. Organized in sub-folders by year.
+Each folder is organized in sub-folders by year.<br>
+>• oahu_humid stores all of the humidity data from HCDP for Oʻahu, spanning from January of 2002 to October of 2025.<br>
+>• oahu_ignit stores all of the ignition probability data from HCDP for Oʻahu, spanning from January of 2002 to October of 2025.<br>
+>• oahu_ndvi stores all of the ndvi data from HCDP for Oʻahu, spanning from January of 2000 to October of 2025.<br>
+>• oahu_rain stores all of the rainfall data from HCDP for Oʻahu, spanning from January of 1990 to October of 2025.<br>
+>• oahu_temp stores all of the mean temperature data from HCDP for Oʻahu, spanning from January of 1990 to October of 2025.
 
 # Jaydon Laboy
 I am an Environmental Science major with a growing interest in using data to understand and address environmental challenges. I’m currently working to strengthen my skills in coding and data analysis so I can better interpret ecological patterns and support evidence based decision making. My goal is to combine field knowledge with analytical tools to contribute to sustainable solutions in Hawaii.<br>
