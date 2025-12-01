@@ -19,7 +19,10 @@ library("RColorBrewer")
 library("broom")
 library("ggplot2")
 library("patchwork")
+library("leaflet")
 library("units")
+library("randomForest")
+library("elevatr")
 ```
 
 ## Rainfall Data From 1990-2025
@@ -660,17 +663,10 @@ ggplot(annual_temp, aes(x=year, y=mean_temp)) +
 
 ## Watershed and Haole Koa
 
+Load and clean data
+
 ```{r}
-library(sf)
-library(tidyverse)
-library(rgbif)
-library(ggplot2)
-library(units)
-
-# ===============================================================
-# 1. Load STATEWIDE watersheds, then clip to Oʻahu bounding box
-# ===============================================================
-
+# Load watersheds and clip to just Oʻahu
 ws_url <- "https://geodata.hawaii.gov/arcgis/rest/services/FreshWater/MapServer/23/query?where=1=1&outFields=*&f=geojson"
 watersheds_all <- sf::read_sf(ws_url) %>% st_transform(4326)
 
@@ -693,10 +689,7 @@ watersheds <- watersheds %>%
 watersheds <- watersheds %>% 
   filter(!grepl("Unnamed", WATERSHED, ignore.case = TRUE))
 
-# ===============================================================
-# 2. Download Haole Koa from GBIF and clip to Oʻahu
-# ===============================================================
-
+# Download Haole Koa from GBIF and clip to Oʻahu
 hk_data <- occ_search(
   scientificName = "Leucaena leucocephala",
   country = "US",
@@ -715,10 +708,7 @@ hk_sf <- st_as_sf(
 # Clip ONLY Oʻahu HK points
 hk_oahu <- st_intersection(hk_sf, oahu_box)
 
-# ===============================================================
-# 3. Assign HK points to Oʻahu watersheds + compute density
-# ===============================================================
-
+# Assign HK to watersheds and compute density
 hk_joined <- st_join(
   hk_oahu,
   watersheds %>% select(WATERSHED),
@@ -736,12 +726,11 @@ watersheds2 <- watersheds %>%
     area_km2       = as.numeric(st_area(geometry)) / 1e6,
     hk_density_km2 = hk_points / area_km2
   )
+```
 
-# ===============================================================
-# 4. MAPS — OʻAHU ONLY
-# ===============================================================
+Haole Koa Occurences
 
-# --- Map 1: HK Occurrences on Oʻahu ---
+```{r}
 ggplot() +
   geom_sf(data = watersheds2, fill = NA, color = "gray40") +
   geom_sf(data = hk_oahu, color = "darkgreen", alpha = 0.6, size = 1) +
@@ -751,9 +740,11 @@ ggplot() +
     subtitle = "Points clipped to Oʻahu watershed boundaries"
   ) +
   theme_minimal()
+```
 
+Haole Koa Density by Watershed
 
-# --- Map 2: Haole Koa density by watershed ---
+```{r}
 ggplot(watersheds2) +
   geom_sf(aes(fill = hk_density_km2)) +
   scale_fill_viridis_c(
@@ -766,12 +757,11 @@ ggplot(watersheds2) +
     title = "Haole Koa Density by Watershed — Oʻahu"
   ) +
   theme_minimal()
+```
 
-# ===============================================================
-# 5. FIXED RANKING BAR CHART
-# ===============================================================
+Ranking Bar Chart
 
-# Show only the **top 20 densest watersheds**
+```{r}
 topN <- 20
 
 hk_summary <- watersheds2 %>%
@@ -793,17 +783,11 @@ ggplot(hk_summary,
 
 ```
 
+## Ignition Probability
+
+Load Data
+
 ```{r}
-library(terra)
-library(tidyverse)
-library(sf)
-library(ggplot2)
-library(lubridate)
-
-# ============================================================
-# 1. Load Ignition Probability Data (2002–2025)
-# ============================================================
-
 ign_base <- "/Users/roronorazoro/Documents/GitHub/Oahu-Rainfall-Watershed-Risk/data/oahu_ignit"
 
 all_ign_tifs <- list.files(ign_base, pattern="\\.tif$", recursive=TRUE, full.names=TRUE)
@@ -836,10 +820,10 @@ ign_months <- substr(ign_dates, 1, 7)
 
 ```
 
+Calculations
+
 ```{r}
-# ============================================================
-# 2. Compute Monthly & Annual Ignition Probability
-# ============================================================
+# Compute Monthly & Annual Ignition Probability
 
 # Monthly mean (2002–2025)
 monthly_ids <- unique(ign_months)
@@ -874,6 +858,8 @@ annual_ign <- map_dfr(unique_years_ign, function(y){
 })
 ```
 
+Long-Term Ignition Probability
+
 ```{r}
 # Long-term mean ignition probability
 ign_mean_raster <- mean(ign_stack)
@@ -891,6 +877,8 @@ ggplot(ign_df, aes(x=x, y=y, fill=ignition)) +
   theme_minimal()
 ```
 
+Annual Mean Ignition Probability
+
 ```{r}
 ggplot(annual_ign, aes(x=year, y=mean_ign)) +
   geom_line(color="firebrick", linewidth=1.2) +
@@ -904,13 +892,11 @@ ggplot(annual_ign, aes(x=year, y=mean_ign)) +
 
 ```
 
-```{r}
-# ============================================================
-# 5. Watershed-Level Ignition Probability
-# ============================================================
+Ignition Probablity by Watershed
 
+```{r}
 # Extract watershed polygons (from previous HK work)
-ws <- watersheds   # already clipped to Oʻahu and cleaned
+ws <- watersheds
 
 # Extract ignition mean for each watershed
 ign_ws_values <- exactextractr::exact_extract(ign_mean_raster, ws, 'mean')
@@ -925,8 +911,9 @@ ggplot(ws_ign) +
     title = "Ignition Probability by Watershed — Oʻahu"
   ) +
   theme_minimal()
-
 ```
+
+Ranking Watershed by Ignition Probability (Top 20)
 
 ```{r}
 ws_rank <- ws_ign %>%
@@ -948,25 +935,14 @@ ggplot(ws_rank,
 
 ```
 
-Machine Learning
+## Machine Learning
+
+Load and Clean Data
 
 ```{r}
-# ============================================================
 #  MACHINE LEARNING: WATERSHED STRESS INDEX (WSI)
-# ============================================================
 
-library(sf)
-library(terra)
-library(tidyverse)
-library(randomForest)
-library(exactextractr)
-library(ggplot2)
-library(elevatr)
-
-# ------------------------------------------------------------
-# 1. LOAD ELEVATION (Using elevatr — stable & reliable)
-# ------------------------------------------------------------
-
+# Load Elevation Using Elevatr
 oahu_bbox <- data.frame(
   x = c(-158.3, -157.6),
   y = c(21.2, 21.8)
@@ -975,17 +951,13 @@ oahu_bbox <- data.frame(
 elev_raster <- get_elev_raster(
   locations = oahu_bbox,
   prj = "+proj=longlat +datum=WGS84",
-  z = 10,     # resolution (~90m)
+  z = 10,   
   expand = 0.05
 )
 
 elev_raster <- rast(elev_raster)
 
-# ------------------------------------------------------------
-# 2. WATERSHED AVERAGES FOR ALL VARIABLES
-# ------------------------------------------------------------
-
-# Required objects must already exist:
+# Objects should already exist:
 #   annual_mean        = rainfall long-term mean
 #   annual_mean_ndvi   = NDVI long-term mean
 #   annual_mean_temp   = temperature long-term mean
@@ -993,25 +965,25 @@ elev_raster <- rast(elev_raster)
 #   watersheds         = Oʻahu watershed polygons
 #   watersheds2        = watersheds + hk_density_km2
 
-# --- Rainfall
+# Rainfall
 ws_rain_values <- exact_extract(annual_mean, watersheds, 'mean')
 
-# --- NDVI
+# NDVI
 ws_ndvi_values <- exact_extract(annual_mean_ndvi, watersheds, 'mean')
 
-# --- Temperature
+# Temperature
 ws_temp_values <- exact_extract(annual_mean_temp, watersheds, 'mean')
 
-# --- Ignition probability
+# Ignition probability
 ws_ign_values <- exact_extract(ign_mean_raster, watersheds, 'mean')
 
-# --- Elevation
+# Elevation
 ws_elev_values <- exact_extract(elev_raster, watersheds, 'mean')
+```
 
-# ------------------------------------------------------------
-# 3. BUILD MACHINE LEARNING DATAFRAME
-# ------------------------------------------------------------
+Machine Learning Dataframe and Training
 
+```{r}
 watershed_ml <- tibble(
   WATERSHED    = watersheds$WATERSHED,
   hk_density   = watersheds2$hk_density_km2,
@@ -1022,9 +994,7 @@ watershed_ml <- tibble(
   ignition_obs = ws_ign_values
 ) %>% drop_na()
 
-# ------------------------------------------------------------
-# 4. RANDOM FOREST MODEL TO PREDICT IGNITION PROBABILITY
-# ------------------------------------------------------------
+# Random Forest to predict ignition
 
 set.seed(123)
 
@@ -1038,10 +1008,7 @@ rf_model <- randomForest(
 print(rf_model)
 importance(rf_model)
 
-# ------------------------------------------------------------
-# 5. PREDICT IGNITION + BUILD WSI (Watershed Stress Index)
-# ------------------------------------------------------------
-
+# Predict ignition and build WSI
 watershed_ml$ign_pred <- predict(rf_model, watershed_ml)
 
 # Scale helper
@@ -1065,15 +1032,11 @@ watershed_ml$WSI <- (
   watershed_ml$elev_s * 0.10 +        # elevation dryness
   (1 - watershed_ml$ndvi_s) * 0.10    # low NDVI = vegetation stress
 )
+```
 
-# ------------------------------------------------------------
-# 6. MAP THE WSI OVER OʻAHU WATERSHEDS
-# ------------------------------------------------------------
+Map WSI Over Oʻahu
 
-# ------------------------------------------------------------
-# 6. MAP THE WSI OVER OʻAHU WATERSHEDS (JOIN BY NAME)
-# ------------------------------------------------------------
-
+```{r}
 ws_map <- watersheds %>%
   left_join(
     watershed_ml %>% select(WATERSHED, WSI),
@@ -1097,17 +1060,12 @@ ggplot(ws_map) +
     plot.title = element_text(size = 15, face = "bold"),   # title large
     plot.subtitle = element_text(size = 8)                 # subtitle half size
   )
-
 ```
 
 Evaluation Metrics
 
 ```{r}
-# ------------------------------------------------------------
-# MODEL PERFORMANCE METRICS
-# ------------------------------------------------------------
-
-# 1. Out-of-bag error (RF internal validation)
+# Out-of-bag error (RF internal validation)
 oob_error <- rf_model$mse[length(rf_model$mse)]  # last MSE value
 oob_rmse <- sqrt(oob_error)
 
@@ -1115,8 +1073,7 @@ cat("---- Random Forest Model Performance ----\n")
 cat("OOB MSE:  ", round(oob_error, 4), "\n")
 cat("OOB RMSE: ", round(oob_rmse, 4), "\n\n")
 
-
-# 2. R-squared (based on actual vs predicted)
+# R-squared (based on actual vs predicted)
 actual <- watershed_ml$ignition_obs
 pred   <- watershed_ml$ign_pred
 
@@ -1139,9 +1096,6 @@ cat("RMSE:      ", round(rmse, 4), "\n")
 Feature Importance Plot
 
 ```{r}
-# ------------------------------------------------------------
-# VARIABLE IMPORTANCE PLOT
-# ------------------------------------------------------------
 importance_df <- data.frame(
   Variable = rownames(importance(rf_model)),
   Importance = importance(rf_model)[, 1]
@@ -1156,5 +1110,4 @@ ggplot(importance_df, aes(x=reorder(Variable, Importance), y=Importance)) +
     y = "Importance (IncMSE)"
   ) +
   theme_minimal()
-
 ```
