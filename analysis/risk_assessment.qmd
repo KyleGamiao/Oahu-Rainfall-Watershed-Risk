@@ -13,6 +13,7 @@ library("terra")
 library("tidyverse")
 library("lubridate")
 library("exactextractr")
+library("shiny")
 library("rgbif")
 library("RColorBrewer")
 library("broom")
@@ -49,7 +50,7 @@ names(rain_stack) <- gsub(".*_(\\d{4}_\\d{2})\\.tif$", "\\1", basename(rain_file
 Monthly and annual computations
 
 ```{r}
-#m Monthly metrics
+# Monthly metrics
 rain_metrics <- map_dfr(1:nlyr(rain_stack), function(i){
   r <- rain_stack[[i]]
   vals <- values(r)
@@ -106,13 +107,100 @@ ggplot(annual_df, aes(x = x, y = y, fill = rain_mm)) +
   )
 ```
 
-Annual Rainfall Over Time
-
-#Look for significant events like droughts or storms
+Annual Mean Rainfall w/ Slider
 
 ```{r}
-# Annual Mean Rainfall Line Plot 1990-2025
+# Load Rainfall Data
+rain_base <- "/Users/roronorazoro/Documents/GitHub/Oahu-Rainfall-Watershed-Risk/data/oahu_rain"
 
+all_tifs <- list.files(rain_base, pattern="\\.tif$", recursive=TRUE, full.names=TRUE)
+
+# Filter monthly files like *_1990_03.tif
+rain_files <- all_tifs[grepl("_(199\\d|200\\d|201\\d|202[0-5])_\\d{2}\\.tif$", all_tifs)]
+
+if(length(rain_files)==0) stop("No rainfall rasters found!")
+
+rain_stack <- rast(rain_files)
+
+# Extract layer names YYYY_MM
+names(rain_stack) <- gsub(".*_(\\d{4}_\\d{2})\\.tif$", "\\1", basename(rain_files))
+
+# Extract Years and Compute Rasters
+years <- as.integer(substr(names(rain_stack), 1, 4))
+unique_years <- sort(unique(years))
+
+annual_rain_rasters <- list()
+
+for(y in unique_years){
+  idx <- which(years == y)
+  annual_rain_rasters[[as.character(y)]] <- mean(rain_stack[[idx]])
+}
+
+# Color Palette
+all_vals <- unlist(lapply(annual_rain_rasters, values))
+
+pal_rain <- colorNumeric(
+  palette = c("#2E8B57", "#ADD8E6"), 
+  domain  = all_vals,
+  na.color = "transparent"
+)
+
+# Shiny UI
+ui <- fluidPage(
+  titlePanel("Oʻahu Annual Mean Rainfall (1990–2025)"),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput(
+        "year",
+        "Select Year:",
+        min = min(unique_years),
+        max = max(unique_years),
+        value = min(unique_years),
+        step = 1,
+        sep = ""
+      )
+    ),
+    mainPanel(
+      leafletOutput("rain_map", height = "600px")
+    )
+  )
+)
+
+# Shiny Server
+server <- function(input, output, session){
+
+  output$rain_map <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      addRasterImage(
+        annual_rain_rasters[[as.character(input$year)]],
+        colors = pal_rain,
+        opacity = 0.85
+      ) %>%
+      addLegend(
+        pal = pal_rain,
+        values = all_vals,
+        title = "Rainfall (mm)"
+      )
+  })
+
+  observe({
+    leafletProxy("rain_map") %>%
+      clearImages() %>%
+      addRasterImage(
+        annual_rain_rasters[[as.character(input$year)]],
+        colors = pal_rain,
+        opacity = 0.85
+      )
+  })
+}
+
+shinyApp(ui, server)
+```
+
+Annual Rainfall Over Time
+
+```{r}
 # List of rainfall tifs
 rain_base_path <- "/Users/roronorazoro/Documents/GitHub/Oahu-Rainfall-Watershed-Risk/data"
 
@@ -143,9 +231,7 @@ mean_rain_per_year <- data.frame(
   mean_rain_mm = annual_means
 )
 
-# -------------------------------
-# 4) Plot line chart
-# -------------------------------
+# Line Chart Plot
 ggplot(mean_rain_per_year, aes(x=year, y=mean_rain_mm)) +
   geom_line(color="steelblue", size=1) +
   geom_point(color="darkred") +
@@ -259,6 +345,7 @@ Long-Term Mean NDVI Map
 
 ```{r}
 annual_mean_raster <- mean(ndvi_stack)
+annual_mean_ndvi <- annual_mean_raster
 
 annual_df <- as.data.frame(annual_mean_raster, xy=TRUE)
 colnames(annual_df) <- c("x", "y", "ndvi")
@@ -289,6 +376,86 @@ ggplot(annual_df, aes(x=x, y=y, fill=ndvi)) +
   )
 ```
 
+Annual Mean NDVI 2000-2024 w/ Slider
+
+```{r}
+# Extract Years from File Names
+years <- as.integer(gsub(
+  ".*_(\\d{4})_\\d{2}_\\d{2}\\.tif$", 
+  "\\1",
+  basename(sources(ndvi_stack))
+))
+
+unique_years <- sort(unique(years))
+
+# Annual NDVI Rasters
+annual_ndvi_rasters <- list()
+for(y in unique_years){
+  idx <- which(years == y)
+  annual_ndvi_rasters[[as.character(y)]] <- mean(ndvi_stack[[idx]])
+}
+
+# Color Palette
+all_vals <- unlist(lapply(annual_ndvi_rasters, values))
+pal <- colorNumeric(
+  palette = brewer.pal(9, "YlGn"),
+  domain = all_vals,
+  na.color = "transparent"
+)
+
+# Shiny UI
+ui <- fluidPage(
+  titlePanel("Oʻahu Annual Mean NDVI"),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput(
+        "year",
+        "Select Year:",
+        min = min(unique_years),
+        max = max(unique_years),
+        value = min(unique_years),
+        step = 1,
+        sep = ""
+      )
+    ),
+    mainPanel(
+      leafletOutput("ndvi_map", height = "600px")
+    )
+  )
+)
+
+# Shiny Server
+server <- function(input, output, session) {
+
+  output$ndvi_map <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      addRasterImage(
+        annual_ndvi_rasters[[as.character(input$year)]],
+        colors = pal,
+        opacity = 0.8
+      ) %>%
+      addLegend(
+        pal = pal,
+        values = all_vals,
+        title = "NDVI"
+      )
+  })
+
+  observe({
+    leafletProxy("ndvi_map") %>%
+      clearImages() %>%
+      addRasterImage(
+        annual_ndvi_rasters[[as.character(input$year)]],
+        colors = pal,
+        opacity = 0.8
+      )
+  })
+}
+
+shinyApp(ui, server)
+```
+
 Annual NDVI Time-Series Plot
 
 ```{r}
@@ -301,4 +468,693 @@ ggplot(annual_ndvi, aes(x=year, y=mean_ndvi)) +
     y="Mean NDVI"
   ) +
   theme_minimal(base_size=14)
+```
+
+## Temperature Data From 1990-2025
+
+Load and Clean Data
+
+```{r}
+# Load Temp Data
+temp_base <- "/Users/roronorazoro/Documents/GitHub/Oahu-Rainfall-Watershed-Risk/data/oahu_temp"
+
+all_temp_tifs <- list.files(temp_base, pattern="\\.tif$", recursive=TRUE, full.names=TRUE)
+
+# Filter years 1990-2025
+temp_files <- all_temp_tifs[grepl("temperature_mean_month_oa_data_map_(199\\d|200\\d|201\\d|202[0-5])_\\d{2}\\.tif$", all_temp_tifs)]
+
+cat("Total temperature files detected:", length(temp_files), "\n")
+
+if(length(temp_files) == 0) stop("No temperature files found. Check folder or filenames!")
+
+# Load valid rasters
+valid_temp <- list()
+for(f in temp_files){
+  try({
+    r <- rast(f)
+    valid_temp[[length(valid_temp) + 1]] <- r
+  }, silent = TRUE)
+}
+
+cat("Successfully loaded:", length(valid_temp), "temperature rasters\n")
+
+# Stack all rasters
+temp_stack <- rast(valid_temp)
+names(temp_stack) <- gsub(".*_(\\d{4}_\\d{2})\\.tif$", "\\1", basename(temp_files))
+
+# Monthly Metrics
+months <- substr(names(temp_stack),1,7)
+
+monthly_temp <- map_dfr(unique(months), function(m){
+  idx <- which(months == m)
+  r <- mean(temp_stack[[idx]])
+  vals <- values(r)
+  vals <- vals[!is.na(vals)]
+  
+  data.frame(
+    month = m,
+    mean_temp = mean(vals),
+    min_temp  = min(vals),
+    max_temp  = max(vals),
+    sd_temp   = sd(vals),
+    p10_temp  = quantile(vals,0.10),
+    p90_temp  = quantile(vals,0.90)
+  )
+})
+
+head(monthly_temp)
+
+# Annual Mean Temperature Rasters
+years <- as.integer(substr(names(temp_stack),1,4))
+unique_years <- sort(unique(years))
+
+annual_temp <- map_dfr(unique_years, function(y){
+  idx <- which(years == y)
+  r <- mean(temp_stack[[idx]])
+  vals <- values(r)
+  vals <- vals[!is.na(vals)]
+  
+  data.frame(
+    year = y,
+    mean_temp = mean(vals)
+  )
+})
+
+annual_temp
+```
+
+Long-Term Mean Temperature
+
+```{r}
+annual_mean_raster <- mean(temp_stack)
+annual_mean_temp <- mean(temp_stack)
+
+annual_df <- as.data.frame(annual_mean_temp, xy=TRUE)
+colnames(annual_df) <- c("x","y","temp")
+
+ggplot(annual_df, aes(x=x, y=y, fill=temp)) +
+  geom_raster() +
+  scale_fill_gradientn(
+    colors = rev(brewer.pal(9,"RdYlBu")),
+    name="Temperature (°C)"
+  ) +
+  coord_equal() +
+  labs(
+    title="Oʻahu Long-Term Mean Temperature (1990–2025)",
+    x="Longitude",
+    y="Latitude"
+  ) +
+  theme_minimal(base_size=14) +
+  theme(
+    legend.position="right",
+    plot.title=element_text(hjust=0.5, face="bold")
+  )
+```
+
+Annual Mean Temperature 1990-2025 w/ Slider
+
+```{r}
+# Annual Mean Rasters
+years <- as.integer(substr(names(temp_stack),1,4))
+unique_years <- sort(unique(years))
+
+annual_rasters <- list()
+for(y in unique_years){
+  idx <- which(years == y)
+  r <- mean(temp_stack[[idx]])
+  annual_rasters[[as.character(y)]] <- r
+}
+
+# Palette
+all_vals <- unlist(lapply(annual_rasters, values))
+pal <- colorNumeric(
+  palette = rev(brewer.pal(9, "RdYlBu")),
+  domain = all_vals,
+  na.color = "transparent"
+)
+
+# Shiny App
+ui <- fluidPage(
+  titlePanel("Oʻahu Annual Mean Temperature"),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("year",
+                  "Select Year:",
+                  min = min(unique_years),
+                  max = max(unique_years),
+                  value = min(unique_years),
+                  step = 1,
+                  sep = "")
+    ),
+    mainPanel(
+      leafletOutput("temp_map", height = "600px")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  
+  output$temp_map <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      addRasterImage(
+        annual_rasters[[as.character(input$year)]],
+        colors = pal,
+        opacity = 0.8
+      ) %>%
+      addLegend(
+        pal = pal,
+        values = all_vals,
+        title = "Temperature (°C)"
+      )
+  })
+  
+# Update map when slider changes
+  observe({
+    leafletProxy("temp_map") %>%
+      clearImages() %>%
+      addRasterImage(
+        annual_rasters[[as.character(input$year)]],
+        colors = pal,
+        opacity = 0.8
+      )
+  })
+}
+
+shinyApp(ui, server)
+```
+
+Annual Temperature Time-Series Plot
+
+```{r}
+ggplot(annual_temp, aes(x=year, y=mean_temp)) +
+  geom_line(color="firebrick", linewidth=1) +
+  geom_point(color="darkblue") +
+  labs(
+    title="Oʻahu Annual Mean Temperature (1990–2025)",
+    x="Year",
+    y="Mean Temperature (°C)"
+  ) +
+  theme_minimal(base_size=14)
+```
+
+## Watershed and Haole Koa
+
+```{r}
+library(sf)
+library(tidyverse)
+library(rgbif)
+library(ggplot2)
+library(units)
+
+# ===============================================================
+# 1. Load STATEWIDE watersheds, then clip to Oʻahu bounding box
+# ===============================================================
+
+ws_url <- "https://geodata.hawaii.gov/arcgis/rest/services/FreshWater/MapServer/23/query?where=1=1&outFields=*&f=geojson"
+watersheds_all <- sf::read_sf(ws_url) %>% st_transform(4326)
+
+# Oʻahu bounding box
+oahu_box <- st_bbox(c(
+  xmin = -158.3,
+  xmax = -157.6,
+  ymin = 21.2,
+  ymax = 21.8
+), crs = st_crs(4326)) %>% st_as_sfc()
+
+# Clip to Oʻahu only
+watersheds <- st_intersection(watersheds_all, oahu_box)
+
+# Clean watershed name field
+watersheds <- watersheds %>%
+  rename(WATERSHED = name)
+
+# Remove unnamed tiny slivers
+watersheds <- watersheds %>% 
+  filter(!grepl("Unnamed", WATERSHED, ignore.case = TRUE))
+
+# ===============================================================
+# 2. Download Haole Koa from GBIF and clip to Oʻahu
+# ===============================================================
+
+hk_data <- occ_search(
+  scientificName = "Leucaena leucocephala",
+  country = "US",
+  stateProvince = "Hawaii",
+  hasCoordinate = TRUE,
+  limit = 20000
+)$data %>%
+  filter(!is.na(decimalLatitude), !is.na(decimalLongitude))
+
+hk_sf <- st_as_sf(
+  hk_data,
+  coords = c("decimalLongitude", "decimalLatitude"),
+  crs = 4326
+)
+
+# Clip ONLY Oʻahu HK points
+hk_oahu <- st_intersection(hk_sf, oahu_box)
+
+# ===============================================================
+# 3. Assign HK points to Oʻahu watersheds + compute density
+# ===============================================================
+
+hk_joined <- st_join(
+  hk_oahu,
+  watersheds %>% select(WATERSHED),
+  left = FALSE
+)
+
+hk_counts <- hk_joined %>%
+  st_drop_geometry() %>%
+  count(WATERSHED, name = "hk_points")
+
+watersheds2 <- watersheds %>%
+  left_join(hk_counts, by = "WATERSHED") %>%
+  mutate(
+    hk_points      = ifelse(is.na(hk_points), 0L, hk_points),
+    area_km2       = as.numeric(st_area(geometry)) / 1e6,
+    hk_density_km2 = hk_points / area_km2
+  )
+
+# ===============================================================
+# 4. MAPS — OʻAHU ONLY
+# ===============================================================
+
+# --- Map 1: HK Occurrences on Oʻahu ---
+ggplot() +
+  geom_sf(data = watersheds2, fill = NA, color = "gray40") +
+  geom_sf(data = hk_oahu, color = "darkgreen", alpha = 0.6, size = 1) +
+  coord_sf(xlim = c(-158.3, -157.6), ylim = c(21.2, 21.8)) +
+  labs(
+    title = "Haole Koa Occurrences (GBIF) on Oʻahu",
+    subtitle = "Points clipped to Oʻahu watershed boundaries"
+  ) +
+  theme_minimal()
+
+
+# --- Map 2: Haole Koa density by watershed ---
+ggplot(watersheds2) +
+  geom_sf(aes(fill = hk_density_km2)) +
+  scale_fill_viridis_c(
+    option = "C",
+    name = "HK Density (points/km²)",
+    na.value = "gray90"
+  ) +
+  coord_sf(xlim = c(-158.3, -157.6), ylim = c(21.2, 21.8)) +
+  labs(
+    title = "Haole Koa Density by Watershed — Oʻahu"
+  ) +
+  theme_minimal()
+
+# ===============================================================
+# 5. FIXED RANKING BAR CHART
+# ===============================================================
+
+# Show only the **top 20 densest watersheds**
+topN <- 20
+
+hk_summary <- watersheds2 %>%
+  st_drop_geometry() %>%
+  arrange(desc(hk_density_km2)) %>%
+  slice_head(n = topN)
+
+ggplot(hk_summary,
+       aes(x = reorder(WATERSHED, hk_density_km2),
+           y = hk_density_km2)) +
+  geom_col(fill = "forestgreen") +
+  coord_flip() +
+  labs(
+    title = paste("Top", topN, "Watersheds by Haole Koa Density"),
+    x = "Watershed",
+    y = "Density (points/km²)"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+library(terra)
+library(tidyverse)
+library(sf)
+library(ggplot2)
+library(lubridate)
+
+# ============================================================
+# 1. Load Ignition Probability Data (2002–2025)
+# ============================================================
+
+ign_base <- "/Users/roronorazoro/Documents/GitHub/Oahu-Rainfall-Watershed-Risk/data/oahu_ignit"
+
+all_ign_tifs <- list.files(ign_base, pattern="\\.tif$", recursive=TRUE, full.names=TRUE)
+
+# Filter valid filenames
+ign_files <- all_ign_tifs[
+  grepl("ignition_probability_day_lead00_oa_data_map_(200\\d|201\\d|202[0-5])_\\d{2}_\\d{2}\\.tif$", 
+        all_ign_tifs)
+]
+
+length(ign_files)
+
+# Load rasters
+valid_ign <- list()
+bad_ign <- character()
+
+for (f in ign_files) {
+  try({
+    r <- rast(f)
+    valid_ign[[length(valid_ign) + 1]] <- r
+  }, silent = TRUE)
+}
+
+ign_stack <- rast(valid_ign)
+
+# Extract dates
+ign_dates <- gsub(".*_(\\d{4}_\\d{2}_\\d{2})\\.tif$", "\\1", basename(sources(ign_stack)))
+ign_years <- as.integer(substr(ign_dates, 1, 4))
+ign_months <- substr(ign_dates, 1, 7)
+
+```
+
+```{r}
+# ============================================================
+# 2. Compute Monthly & Annual Ignition Probability
+# ============================================================
+
+# Monthly mean (2002–2025)
+monthly_ids <- unique(ign_months)
+
+monthly_ign <- map_dfr(monthly_ids, function(m){
+  idx <- which(ign_months == m)
+  r <- mean(ign_stack[[idx]])
+  vals <- values(r)
+  vals <- vals[!is.na(vals)]
+
+  tibble(
+    month = m,
+    mean_ign = mean(vals),
+    p10_ign  = quantile(vals, 0.10),
+    p90_ign  = quantile(vals, 0.90)
+  )
+})
+
+# Annual ignition
+unique_years_ign <- sort(unique(ign_years))
+
+annual_ign <- map_dfr(unique_years_ign, function(y){
+  idx <- which(ign_years == y)
+  r <- mean(ign_stack[[idx]])
+  vals <- values(r)
+  vals <- vals[!is.na(vals)]
+
+  tibble(
+    year = y,
+    mean_ign = mean(vals)
+  )
+})
+```
+
+```{r}
+# Long-term mean ignition probability
+ign_mean_raster <- mean(ign_stack)
+
+ign_df <- as.data.frame(ign_mean_raster, xy = TRUE)
+colnames(ign_df) <- c("x", "y", "ignition")
+
+ggplot(ign_df, aes(x=x, y=y, fill=ignition)) +
+  geom_raster() +
+  scale_fill_viridis_c(name = "Ignition Prob.") +
+  coord_equal() +
+  labs(
+    title="Oʻahu Long-Term Ignition Probability (2002–2025)"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(annual_ign, aes(x=year, y=mean_ign)) +
+  geom_line(color="firebrick", linewidth=1.2) +
+  geom_point(color="black") +
+  labs(
+    title="Oʻahu Annual Mean Ignition Probability (2002–2025)",
+    x="Year",
+    y="Mean Ignition Probability"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# ============================================================
+# 5. Watershed-Level Ignition Probability
+# ============================================================
+
+# Extract watershed polygons (from previous HK work)
+ws <- watersheds   # already clipped to Oʻahu and cleaned
+
+# Extract ignition mean for each watershed
+ign_ws_values <- exactextractr::exact_extract(ign_mean_raster, ws, 'mean')
+
+ws_ign <- ws %>%
+  mutate(mean_ignition = ign_ws_values)
+
+ggplot(ws_ign) +
+  geom_sf(aes(fill = mean_ignition)) +
+  scale_fill_viridis_c(name = "Mean Ignition\nProbability") +
+  labs(
+    title = "Ignition Probability by Watershed — Oʻahu"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+ws_rank <- ws_ign %>%
+  st_drop_geometry() %>%
+  arrange(desc(mean_ignition)) %>%
+  slice_head(n = 20)   # top 20 only
+
+ggplot(ws_rank,
+       aes(x=reorder(WATERSHED, mean_ignition),
+           y=mean_ignition)) +
+  geom_col(fill="firebrick") +
+  coord_flip() +
+  labs(
+    title = "Top 20 Watersheds by Ignition Probability",
+    x="Watershed",
+    y="Ignition Probability"
+  ) +
+  theme_minimal()
+
+```
+
+Machine Learning
+
+```{r}
+# ============================================================
+#  MACHINE LEARNING: WATERSHED STRESS INDEX (WSI)
+# ============================================================
+
+library(sf)
+library(terra)
+library(tidyverse)
+library(randomForest)
+library(exactextractr)
+library(ggplot2)
+library(elevatr)
+
+# ------------------------------------------------------------
+# 1. LOAD ELEVATION (Using elevatr — stable & reliable)
+# ------------------------------------------------------------
+
+oahu_bbox <- data.frame(
+  x = c(-158.3, -157.6),
+  y = c(21.2, 21.8)
+)
+
+elev_raster <- get_elev_raster(
+  locations = oahu_bbox,
+  prj = "+proj=longlat +datum=WGS84",
+  z = 10,     # resolution (~90m)
+  expand = 0.05
+)
+
+elev_raster <- rast(elev_raster)
+
+# ------------------------------------------------------------
+# 2. WATERSHED AVERAGES FOR ALL VARIABLES
+# ------------------------------------------------------------
+
+# Required objects must already exist:
+#   annual_mean        = rainfall long-term mean
+#   annual_mean_ndvi   = NDVI long-term mean
+#   annual_mean_temp   = temperature long-term mean
+#   ign_mean_raster    = ignition long-term mean
+#   watersheds         = Oʻahu watershed polygons
+#   watersheds2        = watersheds + hk_density_km2
+
+# --- Rainfall
+ws_rain_values <- exact_extract(annual_mean, watersheds, 'mean')
+
+# --- NDVI
+ws_ndvi_values <- exact_extract(annual_mean_ndvi, watersheds, 'mean')
+
+# --- Temperature
+ws_temp_values <- exact_extract(annual_mean_temp, watersheds, 'mean')
+
+# --- Ignition probability
+ws_ign_values <- exact_extract(ign_mean_raster, watersheds, 'mean')
+
+# --- Elevation
+ws_elev_values <- exact_extract(elev_raster, watersheds, 'mean')
+
+# ------------------------------------------------------------
+# 3. BUILD MACHINE LEARNING DATAFRAME
+# ------------------------------------------------------------
+
+watershed_ml <- tibble(
+  WATERSHED    = watersheds$WATERSHED,
+  hk_density   = watersheds2$hk_density_km2,
+  mean_rain    = ws_rain_values,
+  mean_ndvi    = ws_ndvi_values,
+  mean_temp    = ws_temp_values,
+  mean_elev    = ws_elev_values,
+  ignition_obs = ws_ign_values
+) %>% drop_na()
+
+# ------------------------------------------------------------
+# 4. RANDOM FOREST MODEL TO PREDICT IGNITION PROBABILITY
+# ------------------------------------------------------------
+
+set.seed(123)
+
+rf_model <- randomForest(
+  ignition_obs ~ hk_density + mean_rain + mean_ndvi + mean_temp + mean_elev,
+  data = watershed_ml,
+  importance = TRUE,
+  na.action = na.omit
+)
+
+print(rf_model)
+importance(rf_model)
+
+# ------------------------------------------------------------
+# 5. PREDICT IGNITION + BUILD WSI (Watershed Stress Index)
+# ------------------------------------------------------------
+
+watershed_ml$ign_pred <- predict(rf_model, watershed_ml)
+
+# Scale helper
+scale01 <- function(x) (x - min(x)) / (max(x) - min(x))
+
+watershed_ml <- watershed_ml %>%
+  mutate(
+    rain_s   = scale01(mean_rain),
+    ndvi_s   = scale01(mean_ndvi),
+    temp_s   = scale01(mean_temp),
+    elev_s   = scale01(mean_elev),
+    hk_s     = scale01(hk_density),
+    ign_s    = scale01(ign_pred)
+  )
+
+# Weighted WSI formula (0–1 scale, higher = more environmental stress)
+watershed_ml$WSI <- (
+  watershed_ml$hk_s * 0.30 +          # invasive pressure
+  watershed_ml$temp_s * 0.20 +        # heat stress
+  watershed_ml$ign_s  * 0.30 +        # predicted fire likelihood
+  watershed_ml$elev_s * 0.10 +        # elevation dryness
+  (1 - watershed_ml$ndvi_s) * 0.10    # low NDVI = vegetation stress
+)
+
+# ------------------------------------------------------------
+# 6. MAP THE WSI OVER OʻAHU WATERSHEDS
+# ------------------------------------------------------------
+
+# ------------------------------------------------------------
+# 6. MAP THE WSI OVER OʻAHU WATERSHEDS (JOIN BY NAME)
+# ------------------------------------------------------------
+
+ws_map <- watersheds %>%
+  left_join(
+    watershed_ml %>% select(WATERSHED, WSI),
+    by = "WATERSHED"
+  )
+
+ggplot(ws_map) +
+  geom_sf(aes(fill = WSI)) +
+  scale_fill_viridis_c(
+    option = "C",
+    name = "Watershed\nStress Index",
+    na.value = "gray90"
+  ) +
+  coord_sf(xlim = c(-158.3, -157.6), ylim = c(21.2, 21.8)) +
+  labs(
+    title = "Watershed Stress Index (WSI) — Oʻahu",
+    subtitle = "Random Forest model integrating environmental factors and ignition probability"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 15, face = "bold"),   # title large
+    plot.subtitle = element_text(size = 8)                 # subtitle half size
+  )
+
+```
+
+Evaluation Metrics
+
+```{r}
+# ------------------------------------------------------------
+# MODEL PERFORMANCE METRICS
+# ------------------------------------------------------------
+
+# 1. Out-of-bag error (RF internal validation)
+oob_error <- rf_model$mse[length(rf_model$mse)]  # last MSE value
+oob_rmse <- sqrt(oob_error)
+
+cat("---- Random Forest Model Performance ----\n")
+cat("OOB MSE:  ", round(oob_error, 4), "\n")
+cat("OOB RMSE: ", round(oob_rmse, 4), "\n\n")
+
+
+# 2. R-squared (based on actual vs predicted)
+actual <- watershed_ml$ignition_obs
+pred   <- watershed_ml$ign_pred
+
+# R-squared
+rss <- sum((actual - pred)^2)
+tss <- sum((actual - mean(actual))^2)
+r2  <- 1 - rss/tss
+
+# MAE
+mae <- mean(abs(actual - pred))
+
+# RMSE
+rmse <- sqrt(mean((actual - pred)^2))
+
+cat("R-squared: ", round(r2, 4), "\n")
+cat("MAE:       ", round(mae, 4), "\n")
+cat("RMSE:      ", round(rmse, 4), "\n")
+```
+
+Feature Importance Plot
+
+```{r}
+# ------------------------------------------------------------
+# VARIABLE IMPORTANCE PLOT
+# ------------------------------------------------------------
+importance_df <- data.frame(
+  Variable = rownames(importance(rf_model)),
+  Importance = importance(rf_model)[, 1]
+)
+
+ggplot(importance_df, aes(x=reorder(Variable, Importance), y=Importance)) +
+  geom_col(fill="steelblue") +
+  coord_flip() +
+  labs(
+    title = "Random Forest Variable Importance",
+    x = "Predictor",
+    y = "Importance (IncMSE)"
+  ) +
+  theme_minimal()
+
 ```
