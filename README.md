@@ -17,13 +17,13 @@ This project analyzes long-term rainfall trends across Oʻahu’s watersheds pri
 >• Contains still versions of all plots for this project for reference.
 
 # Jaydon Laboy
-<img width="121" height="211" alt="Screenshot 2025-12-02 at 1 00 05 PM" src="https://github.com/user-attachments/assets/ce038fee-5dcc-4428-a5bb-f1d7f6a76eaa" />
+<img width="180" height="210" alt="Screenshot 2025-12-02 at 1 00 05 PM" src="https://github.com/user-attachments/assets/ce038fee-5dcc-4428-a5bb-f1d7f6a76eaa" /> <br>
 I am an Environmental Science major with a growing interest in using data to understand and address environmental challenges. I’m currently working to strengthen my skills in coding and data analysis so I can better interpret ecological patterns and support evidence based decision making. My goal is to combine field knowledge with analytical tools to contribute to sustainable solutions in Hawaii.<br>
 LinkedIn:  https://www.linkedin.com/in/jaydon-laboy-9015b3384/<br>
 Github:  https://github.com/JaydonLaboy/DS422-Geocomputation<br>
 
 # Sano Tanna
-<img width="490" height="581" alt="Screenshot 2025-12-02 at 12 59 29 PM" src="https://github.com/user-attachments/assets/27bb2088-3248-4701-ad2d-1e187dddc454" />
+<img width="180" height="210" alt="Screenshot 2025-12-02 at 12 59 29 PM" src="https://github.com/user-attachments/assets/27bb2088-3248-4701-ad2d-1e187dddc454" /> <br>
 Student leader pursuing a degree in Environmental Studies, combining scientific inquiry with leadership and service. Experienced in campus governance, environmental projects, and mentoring peers toward sustainable, community-based solutions.<br>
 LinkedIn: www.linkedin.com/in/sano-tanna-b30ba0287<br>
 GitHub: https://sano-tanna.github.io/<br>
